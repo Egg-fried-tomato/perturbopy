@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import os
+import h5py
 
 import perturbopy.postproc as ppy
 
@@ -89,3 +90,19 @@ def test_plot_ephmat(gaas_ephmat_spin, plt, kpoint_idx, show_qpoint_labels, with
 
     fig, ax = plt.subplots()
     ppy.EphmatSpin.plot_ephmat(gaas_ephmat_spin, ax, kpoint_idx, show_qpoint_labels)
+
+
+def test_to_hdf5_mode_resolved(gaas_ephmat_spin, tmp_path):
+    h5_path = tmp_path / "gaas_ephmat_spin_mode_resolved.h5"
+    gaas_ephmat_spin.to_hdf5(h5_path)
+
+    with h5py.File(h5_path, "r") as h5f:
+        assert "phonon_mode" in h5f
+        mode_keys = sorted(h5f["phonon_mode"].keys())
+        assert len(mode_keys) == len(gaas_ephmat_spin.ephmat.keys())
+        assert mode_keys[0] == "1"
+
+        mode_1 = h5f["phonon_mode"]["1"]
+        np.testing.assert_allclose(mode_1["ephmat"][()], gaas_ephmat_spin.ephmat[1])
+        np.testing.assert_allclose(mode_1["defpot"][()], gaas_ephmat_spin.defpot[1])
+        np.testing.assert_allclose(mode_1["phonon_energy"][()], gaas_ephmat_spin.phdisp[1])
