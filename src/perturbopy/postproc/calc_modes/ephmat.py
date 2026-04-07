@@ -3,6 +3,7 @@ from perturbopy.postproc.calc_modes.calc_mode import CalcMode
 from perturbopy.postproc.dbs.units_dict import UnitsDict
 from perturbopy.postproc.dbs.recip_pt_db import RecipPtDB
 from perturbopy.postproc.utils.plot_tools import plot_dispersion, plot_recip_pt_labels, plot_vals_on_bands
+from perturbopy.io_utils.io import open_hdf5, close_hdf5
 
 
 class Ephmat(CalcMode):
@@ -179,3 +180,34 @@ class Ephmat(CalcMode):
             ax = plot_recip_pt_labels(ax, self.qpt.labels, self.qpt.points, self.qpt.path)
 
         return ax
+
+    def to_hdf5(self, hdf5_path):
+        """
+        Write mode-resolved e-ph matrix elements to an HDF5 file.
+
+        The exported datasets keep one dataset per phonon mode and do not perform any
+        averaging across degenerate-phonon subspaces.
+
+        Parameters
+        ----------
+        hdf5_path : str
+            Destination path of the HDF5 file.
+        """
+        hdf5_file = open_hdf5(hdf5_path, mode='w')
+
+        hdf5_file.create_dataset('kpoints', data=self.kpt.points)
+        hdf5_file['kpoints'].attrs['units'] = self.kpt.units
+        hdf5_file.create_dataset('qpoints', data=self.qpt.points)
+        hdf5_file['qpoints'].attrs['units'] = self.qpt.units
+
+        ephmat_group = hdf5_file.create_group('phonon_mode')
+        for mode in sorted(self.ephmat.keys()):
+            mode_group = ephmat_group.create_group(str(mode))
+            mode_group.create_dataset('ephmat', data=self.ephmat[mode])
+            mode_group['ephmat'].attrs['units'] = self.ephmat.units
+            mode_group.create_dataset('defpot', data=self.defpot[mode])
+            mode_group['defpot'].attrs['units'] = self.defpot.units
+            mode_group.create_dataset('phonon_energy', data=self.phdisp[mode])
+            mode_group['phonon_energy'].attrs['units'] = self.phdisp.units
+
+        close_hdf5(hdf5_file)
